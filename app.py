@@ -2,7 +2,10 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, date
-from database import buscar_processos, salvar_processo, atualizar_processo, deletar_processo
+from database import (
+    buscar_processos, salvar_processo, atualizar_processo, deletar_processo,
+    buscar_advogados, salvar_advogado, deletar_advogado
+)
 
 # Configuração da página
 st.set_page_config(
@@ -91,7 +94,8 @@ st.markdown("""
 st.markdown('<div class="header-title">⚖️ Gestão Processual</div>', unsafe_allow_html=True)
 st.markdown('<div class="header-subtitle">Escritório de Advocacia — Painel de Controle</div>', unsafe_allow_html=True)
 
-ADVOGADOS = ["Dra. Géssica", "Dr. Carlos Eduardo", "Dra. Mariana Prado", "Sem Responsável Definido"]
+# Busca dinamicamente os advogados cadastrados
+ADVOGADOS = buscar_advogados()
 OPCOES_RESULTADO = ["Em Andamento", "Deferido (Ganho)", "Indeferido (Perda)", "Acordo"]
 
 # Busca dados reais do Supabase
@@ -111,7 +115,8 @@ with st.sidebar:
             "📊 Dashboard / Indicadores", 
             "➕ Novo Cadastro", 
             "📋 Processos / Consulta Geral",
-            "✏️ Editar / Excluir Processo"
+            "✏️ Editar / Excluir Processo",
+            "👨‍⚖️ Cadastrar / Gerenciar Advogados"
         ],
         index=0
     )
@@ -128,8 +133,7 @@ if opcao == "📊 Dashboard / Indicadores":
     st.markdown("### 📊 Painel Geral de Métricas")
 
     if df_geral.empty:
-        st.info(
-            "Nenhum processo cadastrado no banco de dados até o momento. Acesse a aba '➕ Novo Cadastro' para adicionar o primeiro!")
+        st.info("Nenhum processo cadastrado no banco de dados até o momento.")
     else:
         st.markdown('<div class="filter-header">🔍 Filtros Globais de Pesquisa</div>', unsafe_allow_html=True)
 
@@ -236,12 +240,12 @@ elif opcao == "➕ Novo Cadastro":
 
                 sucesso, msg = salvar_processo(novo_registro)
                 if sucesso:
-                    st.success(f"✅ Processo de '{nome}' gravado com sucesso no Supabase!")
+                    st.success(f"✅ Processo de '{nome}' gravado com sucesso!")
                     st.rerun()
                 else:
                     st.error(f"❌ {msg}")
 
-# --- TELA 3: CONSULTA UNIFICADA DE PROCESSOS ---
+# --- TELA 3: CONSULTA UNIFICADA ---
 elif opcao == "📋 Processos / Consulta Geral":
     st.markdown("### 📋 Consulta Geral de Processos")
 
@@ -288,7 +292,6 @@ elif opcao == "✏️ Editar / Excluir Processo":
     if df_geral.empty:
         st.info("Nenhum processo cadastrado no banco de dados para editar ou excluir.")
     else:
-        # Seletor do processo pelo ID/Nome do Cliente
         lista_opcoes = [f"ID {row['id']} - {row['Cliente']} (CPF: {row['CPF']})" for _, row in df_geral.iterrows()]
         processo_selecionado = st.selectbox("Selecione o Processo que deseja editar ou excluir:", lista_opcoes)
 
@@ -296,7 +299,6 @@ elif opcao == "✏️ Editar / Excluir Processo":
             id_selecionado = int(processo_selecionado.split(" - ")[0].replace("ID ", ""))
             dados_proc = df_geral[df_geral['id'] == id_selecionado].iloc[0]
 
-            # Função auxiliar segura para pegar valor de coluna
             def get_val(df_row, keys, default=""):
                 for k in keys:
                     if k in df_row and pd.notna(df_row[k]):
@@ -393,3 +395,47 @@ elif opcao == "✏️ Editar / Excluir Processo":
                         st.rerun()
                     else:
                         st.error(f"❌ {msg}")
+
+# --- TELA 5: CADASTRAR / GERENCIAR ADVOGADOS ---
+elif opcao == "👨‍⚖️ Cadastrar / Gerenciar Advogados":
+    st.markdown("### 👨‍⚖️ Gerenciamento da Equipe de Advogados")
+
+    tab_add_adv, tab_del_adv = st.tabs(["➕ Adicionar Novo Advogado", "🗑️ Remover Advogado"])
+
+    with tab_add_adv:
+        st.markdown("#### **Cadastrar Novo Integrante**")
+        with st.form("form_novo_adv", clear_on_submit=True):
+            novo_adv_nome = st.text_input("Nome Completo do Advogado(a)", placeholder="Ex: Dr. Roberto Silva")
+            btn_cad_adv = st.form_submit_button("💾 Cadastrar Advogado")
+
+            if btn_cad_adv:
+                if not novo_adv_nome.strip():
+                    st.error("Por favor, informe o nome do advogado.")
+                else:
+                    ok, msg = salvar_advogado(novo_adv_nome.strip())
+                    if ok:
+                        st.success(f"✅ {msg}")
+                        st.rerun()
+                    else:
+                        st.error(f"❌ {msg}")
+
+    with tab_del_adv:
+        st.markdown("#### **Remover Advogado da Lista**")
+        if not ADVOGADOS:
+            st.info("Nenhum advogado cadastrado.")
+        else:
+            adv_remover = st.selectbox("Selecione o Advogado para remover:", ADVOGADOS)
+            btn_rem_adv = st.button("🔴 Remover Advogado Selecionado")
+
+            if btn_rem_adv:
+                ok, msg = deletar_advogado(adv_remover)
+                if ok:
+                    st.success(f"🗑️ {msg}")
+                    st.rerun()
+                else:
+                    st.error(f"❌ {msg}")
+
+    st.divider()
+    st.markdown("#### **Lista Atual de Advogados Ativos**")
+    for a in ADVOGADOS:
+        st.markdown(f"- ⚖️ **{a}**")
