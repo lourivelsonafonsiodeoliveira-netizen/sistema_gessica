@@ -86,4 +86,97 @@ def deletar_processo(id_processo: int):
         supabase.table("processos").delete().eq("id", id_processo).execute()
         return True, "Processo excluído com sucesso!"
     except Exception as e:
+        import os
+import pandas as pd
+from supabase import create_client, Client
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+
+def get_supabase_client() -> Client:
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        raise ValueError("Credenciais do Supabase não encontradas nas variáveis de ambiente.")
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# --- PROCESSOS ---
+def buscar_processos():
+    try:
+        supabase = get_supabase_client()
+        response = supabase.table("processos").select("*").order("created_at", desc=True).execute()
+        if response.data:
+            df = pd.DataFrame(response.data)
+            mapeamento = {
+                "id": "id",
+                "data_cadastro": "Data Cadastro",
+                "cliente": "Cliente",
+                "cpf": "CPF",
+                "whatsapp": "WhatsApp",
+                "beneficio": "Benefício",
+                "frente": "Frente",
+                "fase": "Fase",
+                "resultado": "Resultado",
+                "advogado_responsavel": "Advogado Responsável",
+                "parceiro_origem": "Parceiro / Origem",
+                "honorarios_previsto": "Honorários Previsto",
+                "situacao": "Situacao",
+                "observacoes": "Observações"
+            }
+            df = df.rename(columns=mapeamento)
+            return df
+        return pd.DataFrame()
+    except Exception as e:
+        print(f"Erro ao buscar processos: {e}")
+        return pd.DataFrame()
+
+def salvar_processo(dados):
+    try:
+        supabase = get_supabase_client()
+        supabase.table("processos").insert(dados).execute()
+        return True, "Processo cadastrado com sucesso!"
+    except Exception as e:
+        return False, f"Erro ao cadastrar processo: {str(e)}"
+
+def atualizar_processo(id_processo, dados):
+    try:
+        supabase = get_supabase_client()
+        supabase.table("processos").update(dados).eq("id", id_processo).execute()
+        return True, "Processo atualizado com sucesso!"
+    except Exception as e:
+        return False, f"Erro ao atualizar processo: {str(e)}"
+
+def deletar_processo(id_processo):
+    try:
+        supabase = get_supabase_client()
+        supabase.table("processos").delete().eq("id", id_processo).execute()
+        return True, "Processo excluído com sucesso!"
+    except Exception as e:
+        return False, f"Erro ao excluir processo: {str(e)}"
+
+# --- ADVOGADOS ---
+def buscar_advogados():
+    try:
+        supabase = get_supabase_client()
+        response = supabase.table("advogados").select("*").order("nome", desc=False).execute()
+        if response.data:
+            return [row["nome"] for row in response.data if "nome" in row]
+        return ["Dra. Géssica", "Dr. Carlos Eduardo", "Dra. Mariana Prado"]
+    except Exception as e:
+        # Caso a tabela ainda não exista no Supabase, usa os nomes padrão
+        return ["Dra. Géssica", "Dr. Carlos Eduardo", "Dra. Mariana Prado"]
+
+def salvar_advogado(nome):
+    try:
+        supabase = get_supabase_client()
+        supabase.table("advogados").insert({"nome": nome}).execute()
+        return True, f"Advogado(a) '{nome}' cadastrado(a) com sucesso!"
+    except Exception as e:
+        return False, f"Erro ao salvar advogado: {str(e)}"
+
+def deletar_advogado(nome):
+    try:
+        supabase = get_supabase_client()
+        supabase.table("advogados").delete().eq("nome", nome).execute()
+        return True, f"Advogado(a) '{nome}' removido(a) com sucesso!"
+    except Exception as e:
+        return False, f"Erro ao remover advogado: {str(e)}"
         return False, f"Erro ao excluir: {str(e)}"
