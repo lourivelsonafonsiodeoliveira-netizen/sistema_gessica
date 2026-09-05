@@ -107,7 +107,12 @@ with st.sidebar:
 
     opcao = st.radio(
         "",
-        ["📊 Dashboard / Indicadores", "➕ Novo Cadastro", "📋 Processos / Consulta Geral"],
+        [
+            "📊 Dashboard / Indicadores", 
+            "➕ Novo Cadastro", 
+            "📋 Processos / Consulta Geral",
+            "✏️ Editar / Excluir Processo"
+        ],
         index=0
     )
 
@@ -275,3 +280,90 @@ elif opcao == "📋 Processos / Consulta Geral":
 
         st.markdown(f"**Registros encontrados:** `{len(df_lista)}`")
         st.dataframe(df_lista, width='stretch')
+
+# --- TELA 4: EDITAR / EXCLUIR PROCESSO ---
+elif opcao == "✏️ Editar / Excluir Processo":
+    st.markdown("### ✏️ Edição e Exclusão de Processos")
+
+    if df_geral.empty:
+        st.info("Nenhum processo cadastrado no banco de dados para editar ou excluir.")
+    else:
+        # Seletor do processo pelo ID/Nome do Cliente
+        lista_opcoes = [f"ID {row['id']} - {row['Cliente']} (CPF: {row['CPF']})" for _, row in df_geral.iterrows()]
+        processo_selecionado = st.selectbox("Selecione o Processo que deseja editar ou excluir:", lista_opcoes)
+
+        if processo_selecionado:
+            id_selecionado = int(processo_selecionado.split(" - ")[0].replace("ID ", ""))
+            dados_proc = df_geral[df_geral['id'] == id_selecionado].iloc[0]
+
+            tab_editar, tab_excluir = st.tabs(["✏️ Editar Registro", "🗑️ Excluir Registro"])
+
+            with tab_editar:
+                with st.form("form_edicao"):
+                    col_e1, col_e2 = st.columns(2)
+                    with col_e1:
+                        e_cliente = st.text_input("Nome do Cliente", value=str(dados_proc['Cliente']))
+                        e_cpf = st.text_input("CPF", value=str(dados_proc['CPF']))
+                        e_whatsapp = st.text_input("WhatsApp", value=str(dados_proc['whatsapp']) if pd.notna(dados_proc['whatsapp']) else "")
+                        
+                        idx_adv = ADVOGADOS.index(dados_proc['Advogado Responsável']) if dados_proc['Advogado Responsável'] in ADVOGADOS else 0
+                        e_adv = st.selectbox("Advogado Responsável", ADVOGADOS, index=idx_adv)
+                        e_fase = st.text_input("Fase do Processo", value=str(dados_proc['Fase']))
+
+                    with col_e2:
+                        beneficios_lista = ["Salário Maternidade", "Auxílio-Doença / Incapacidade", "Auxílio-Acidente", "Aposentadoria", "BPC / LOAS", "Outro"]
+                        idx_ben = beneficios_lista.index(dados_proc['Benefício']) if dados_proc['Benefício'] in beneficios_lista else 0
+                        e_beneficio = st.selectbox("Benefício", beneficios_lista, index=idx_ben)
+
+                        frentes_lista = ["Administrativo (INSS)", "Judicial (TRF / Vara)"]
+                        idx_frente = frentes_lista.index(dados_proc['Frente']) if dados_proc['Frente'] in frentes_lista else 0
+                        e_frente = st.selectbox("Frente Processual", frentes_lista, index=idx_frente)
+
+                        idx_res = OPCOES_RESULTADO.index(dados_proc['Resultado']) if dados_proc['Resultado'] in OPCOES_RESULTADO else 0
+                        e_resultado = st.selectbox("Resultado", OPCOES_RESULTADO, index=idx_res)
+
+                        e_parceiro = st.text_input("Parceiro / Origem", value=str(dados_proc['Parceiro']) if pd.notna(dados_proc['Parceiro']) else "")
+                        
+                        val_hon = float(dados_proc['Honorários Previsto']) if pd.notna(dados_proc['Honorários Previsto']) else 0.0
+                        e_honorarios = st.number_input("Honorários Previstos (R$)", value=val_hon, min_value=0.0, step=100.0)
+
+                    situacoes_lista = ["Ativo", "Arquivado"]
+                    idx_sit = situacoes_lista.index(dados_proc['Situacao']) if dados_proc['Situacao'] in situacoes_lista else 0
+                    e_situacao = st.selectbox("Situação do Registro", situacoes_lista, index=idx_sit)
+                    
+                    e_obs = st.text_area("Observações / Histórico", value=str(dados_proc['Observações']) if pd.notna(dados_proc['Observações']) else "")
+
+                    btn_salvar = st.form_submit_button("💾 Salvar Alterações")
+
+                    if btn_salvar:
+                        dados_atualizados = {
+                            "cliente": e_cliente,
+                            "cpf": e_cpf,
+                            "whatsapp": e_whatsapp,
+                            "beneficio": e_beneficio,
+                            "frente": e_frente,
+                            "fase": e_fase,
+                            "resultado": e_resultado,
+                            "advogado_responsavel": e_adv,
+                            "parceiro_origem": e_parceiro,
+                            "honorarios_previsto": e_honorarios,
+                            "situacao": e_situacao,
+                            "observacoes": e_obs
+                        }
+                        ok, msg = atualizar_processo(id_selecionado, dados_atualizados)
+                        if ok:
+                            st.success(f"✅ Processo ID {id_selecionado} atualizado com sucesso!")
+                            st.rerun()
+                        else:
+                            st.error(f"❌ {msg}")
+
+            with tab_excluir:
+                st.warning(f"⚠️ **Atenção:** Deseja realmente excluir permanentemente o registro de **{dados_proc['Cliente']}** (ID: {id_selecionado})?")
+                btn_deletar = st.button("🔴 Confirmar Exclusão Definitiva")
+                if btn_deletar:
+                    ok, msg = deletar_processo(id_selecionado)
+                    if ok:
+                        st.success(f"🗑️ Processo ID {id_selecionado} excluído com sucesso!")
+                        st.rerun()
+                    else:
+                        st.error(f"❌ {msg}")
