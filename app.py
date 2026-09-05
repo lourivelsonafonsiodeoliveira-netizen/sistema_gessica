@@ -2,7 +2,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, date
-from database import buscar_processos, salvar_processo
+from database import buscar_processos, salvar_processo, atualizar_processo, deletar_processo
 
 # Configuração da página
 st.set_page_config(
