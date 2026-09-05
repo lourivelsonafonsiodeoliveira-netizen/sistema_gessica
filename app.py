@@ -296,42 +296,67 @@ elif opcao == "✏️ Editar / Excluir Processo":
             id_selecionado = int(processo_selecionado.split(" - ")[0].replace("ID ", ""))
             dados_proc = df_geral[df_geral['id'] == id_selecionado].iloc[0]
 
+            # Função auxiliar segura para pegar valor de coluna
+            def get_val(df_row, keys, default=""):
+                for k in keys:
+                    if k in df_row and pd.notna(df_row[k]):
+                        return df_row[k]
+                return default
+
             tab_editar, tab_excluir = st.tabs(["✏️ Editar Registro", "🗑️ Excluir Registro"])
 
             with tab_editar:
                 with st.form("form_edicao"):
                     col_e1, col_e2 = st.columns(2)
                     with col_e1:
-                        e_cliente = st.text_input("Nome do Cliente", value=str(dados_proc['Cliente']))
-                        e_cpf = st.text_input("CPF", value=str(dados_proc['CPF']))
-                        e_whatsapp = st.text_input("WhatsApp", value=str(dados_proc['whatsapp']) if pd.notna(dados_proc['whatsapp']) else "")
+                        val_cliente = get_val(dados_proc, ['Cliente', 'cliente'])
+                        val_cpf = get_val(dados_proc, ['CPF', 'cpf'])
+                        val_whats = get_val(dados_proc, ['WhatsApp', 'whatsapp'])
+                        val_adv = get_val(dados_proc, ['Advogado Responsável', 'advogado_responsavel'])
+                        val_fase = get_val(dados_proc, ['Fase', 'fase'])
+
+                        e_cliente = st.text_input("Nome do Cliente", value=str(val_cliente))
+                        e_cpf = st.text_input("CPF", value=str(val_cpf))
+                        e_whatsapp = st.text_input("WhatsApp", value=str(val_whats))
                         
-                        idx_adv = ADVOGADOS.index(dados_proc['Advogado Responsável']) if dados_proc['Advogado Responsável'] in ADVOGADOS else 0
+                        idx_adv = ADVOGADOS.index(val_adv) if val_adv in ADVOGADOS else 0
                         e_adv = st.selectbox("Advogado Responsável", ADVOGADOS, index=idx_adv)
-                        e_fase = st.text_input("Fase do Processo", value=str(dados_proc['Fase']))
+                        e_fase = st.text_input("Fase do Processo", value=str(val_fase))
 
                     with col_e2:
+                        val_ben = get_val(dados_proc, ['Benefício', 'beneficio'])
+                        val_frente = get_val(dados_proc, ['Frente', 'frente'])
+                        val_res = get_val(dados_proc, ['Resultado', 'resultado'])
+                        val_parceiro = get_val(dados_proc, ['Parceiro / Origem', 'Parceiro', 'parceiro_origem'])
+                        val_hon = get_val(dados_proc, ['Honorários Previsto', 'honorarios_previsto'], default=0.0)
+
                         beneficios_lista = ["Salário Maternidade", "Auxílio-Doença / Incapacidade", "Auxílio-Acidente", "Aposentadoria", "BPC / LOAS", "Outro"]
-                        idx_ben = beneficios_lista.index(dados_proc['Benefício']) if dados_proc['Benefício'] in beneficios_lista else 0
+                        idx_ben = beneficios_lista.index(val_ben) if val_ben in beneficios_lista else 0
                         e_beneficio = st.selectbox("Benefício", beneficios_lista, index=idx_ben)
 
                         frentes_lista = ["Administrativo (INSS)", "Judicial (TRF / Vara)"]
-                        idx_frente = frentes_lista.index(dados_proc['Frente']) if dados_proc['Frente'] in frentes_lista else 0
+                        idx_frente = frentes_lista.index(val_frente) if val_frente in frentes_lista else 0
                         e_frente = st.selectbox("Frente Processual", frentes_lista, index=idx_frente)
 
-                        idx_res = OPCOES_RESULTADO.index(dados_proc['Resultado']) if dados_proc['Resultado'] in OPCOES_RESULTADO else 0
+                        idx_res = OPCOES_RESULTADO.index(val_res) if val_res in OPCOES_RESULTADO else 0
                         e_resultado = st.selectbox("Resultado", OPCOES_RESULTADO, index=idx_res)
 
-                        e_parceiro = st.text_input("Parceiro / Origem", value=str(dados_proc['Parceiro']) if pd.notna(dados_proc['Parceiro']) else "")
+                        e_parceiro = st.text_input("Parceiro / Origem", value=str(val_parceiro))
                         
-                        val_hon = float(dados_proc['Honorários Previsto']) if pd.notna(dados_proc['Honorários Previsto']) else 0.0
-                        e_honorarios = st.number_input("Honorários Previstos (R$)", value=val_hon, min_value=0.0, step=100.0)
+                        try:
+                            val_hon_float = float(val_hon)
+                        except (ValueError, TypeError):
+                            val_hon_float = 0.0
+                        e_honorarios = st.number_input("Honorários Previstos (R$)", value=val_hon_float, min_value=0.0, step=100.0)
+
+                    val_sit = get_val(dados_proc, ['Situacao', 'situacao'], default='Ativo')
+                    val_obs = get_val(dados_proc, ['Observações', 'observacoes'])
 
                     situacoes_lista = ["Ativo", "Arquivado"]
-                    idx_sit = situacoes_lista.index(dados_proc['Situacao']) if dados_proc['Situacao'] in situacoes_lista else 0
+                    idx_sit = situacoes_lista.index(val_sit) if val_sit in situacoes_lista else 0
                     e_situacao = st.selectbox("Situação do Registro", situacoes_lista, index=idx_sit)
                     
-                    e_obs = st.text_area("Observações / Histórico", value=str(dados_proc['Observações']) if pd.notna(dados_proc['Observações']) else "")
+                    e_obs = st.text_area("Observações / Histórico", value=str(val_obs))
 
                     btn_salvar = st.form_submit_button("💾 Salvar Alterações")
 
@@ -358,7 +383,8 @@ elif opcao == "✏️ Editar / Excluir Processo":
                             st.error(f"❌ {msg}")
 
             with tab_excluir:
-                st.warning(f"⚠️ **Atenção:** Deseja realmente excluir permanentemente o registro de **{dados_proc['Cliente']}** (ID: {id_selecionado})?")
+                val_nome_del = get_val(dados_proc, ['Cliente', 'cliente'])
+                st.warning(f"⚠️ **Atenção:** Deseja realmente excluir permanentemente o registro de **{val_nome_del}** (ID: {id_selecionado})?")
                 btn_deletar = st.button("🔴 Confirmar Exclusão Definitiva")
                 if btn_deletar:
                     ok, msg = deletar_processo(id_selecionado)
